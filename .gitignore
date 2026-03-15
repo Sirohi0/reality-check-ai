@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Data (large files)
+deepfake-backend/data/
+*.mp4
+*.avi
+*.mov
+*.webm
+*.mkv
+
+# Model weights
+deepfake-backend/weights/
+*.pth
+
+# Logs
+deepfake-backend/logs/
+
+# Plot images
+*.png
+
+# Archives
+*.tar.gz
+
+# Node modules
+reality-check-ai/node_modules/
+node_modules/
+
+# Environment
+.env
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
