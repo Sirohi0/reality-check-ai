@@ -1,131 +1,153 @@
-# Reality Check AI — Deepfake Video Detection
+* [README](https://github.com/Sirohi0/reality-check-ai#)
+* [License](https://github.com/Sirohi0/reality-check-ai#)
 
-A full-stack deepfake detection system that analyzes uploaded videos using deep learning to determine if they are real or AI-manipulated. Built with EfficientNetV2-B3 + Temporal Attention BiLSTM, trained on Celeb-DF v2.
+# 🕵️ Reality Check AI — Deepfake Video Detection
+Upload a video, get an instant verdict on whether it's real or AI-manipulated — backed by frame-level attention, not a black box.
 
-## Test Results
+## 🧠 Overview
+Reality Check AI is a full-stack deepfake detection system that analyzes uploaded videos using deep learning to determine whether they are real or AI-generated.
+It extracts frames, isolates faces, runs them through a fine-tuned **EfficientNetV2-B3** backbone, and feeds the resulting sequence into a **Bidirectional LSTM with temporal attention** — so the model doesn't just say "fake," it learns *which frames* gave it away.
+
+## ⚡ Features
+* 🎬 **Video-Level Detection** — Upload any video, get a fake/real verdict with confidence score
+* 🧩 **Temporal Attention** — Learns which frames matter most (blinking, flicker, unnatural motion)
+* 🖼️ **Face-Aware Pipeline** — Detects and crops faces before analysis, not full noisy frames
+* 📊 **Explainable Output** — Per-frame attention weights + step-by-step pipeline breakdown in the API response
+* ⚡ **FastAPI Backend** — Async inference API with Swagger docs out of the box
+* 💻 **React Frontend** — Drag-and-drop upload, live analysis view, confidence gauge
+* 🐳 **Dockerized** — One command spins up frontend + backend together
+
+## 🏗️ Architecture
+```
+Input Video
+    ↓
+Frame Extraction (FFmpeg/PyAV) — 30 frames sampled uniformly
+    ↓
+Face Detection + Cropping (Haar/RetinaFace)
+    ↓
+EfficientNetV2-B3 — spatial feature extraction per frame
+    ↓
+Bidirectional LSTM + Temporal Attention
+    ↓
+Fully Connected + Sigmoid — confidence score (0.0–1.0)
+```
+
+## 📈 Test Results
+Evaluated on the official Celeb-DF v2 test set (518 videos).
 
 | Metric | Score |
-|--------|-------|
+|---|---|
 | AUC-ROC | 99.54% |
 | Accuracy | 96.91% |
 | F1 Score | 97.65% |
 | Misclassified | 16 / 518 videos |
 
-Evaluated on the official Celeb-DF v2 test set (518 videos).
+## 🛠️ Tech Stack
+**Frontend**
+* React 18 + Vite
+* Tailwind CSS
+* React Router v6
+* Axios
 
-## How It Works
+**Backend**
+* FastAPI + Uvicorn
+* PyTorch + timm (EfficientNetV2-B3)
+* OpenCV (face detection)
+* PyAV / FFmpeg (frame extraction)
+* Albumentations (augmentation)
+* scikit-learn (metrics)
 
+**Model**
+* Backbone: EfficientNetV2-B3 (ImageNet pretrained, 60% frozen)
+* Temporal: Bidirectional LSTM (1 layer, 256 hidden)
+* Attention: Temporal self-attention over frame sequence
+* Loss: Focal Loss (class imbalance)
+* Training: Cosine annealing LR with warmup, early stopping on val AUC
+
+## 🚀 Getting Started
+
+### Option A — Docker (recommended)
 ```
-Input Video
-    |
-Frame Extraction (FFmpeg/PyAV) --- 30 frames sampled uniformly
-    |
-Face Detection + Cropping (Haar/RetinaFace) --- isolate face region
-    |
-EfficientNetV2-B3 --- spatial feature extraction per frame
-    |
-Bidirectional LSTM + Temporal Attention --- learns which frames matter
-    |
-Fully Connected + Sigmoid --- confidence score (0.0 to 1.0)
+git clone https://github.com/Sirohi0/reality-check-ai.git
+cd reality-check-ai
+docker compose up --build
 ```
+* Frontend → http://localhost:3000
+* Backend API → http://localhost:8000
+* Swagger docs → http://localhost:8000/docs
 
-The temporal attention mechanism automatically focuses on frames where manipulation artifacts are most visible, such as inconsistent blinking, flickering, or unnatural facial motion.
+> Trained model checkpoints aren't included in this repo (see Dataset section below). Place your checkpoint in `deepfake-backend/checkpoints/` before running, or the backend starts without a loaded model.
+>
+> The Docker image builds a **CPU-only** PyTorch for portability on free-tier hosts — expect inference to take several seconds per video on CPU vs the ~2.3s shown below (measured on GPU).
 
-## Project Structure
+### Option B — Manual Setup
 
+**1️⃣ Backend**
 ```
-reality-check-ai/          # React frontend (Vite + Tailwind)
-  src/
-    components/             # Navbar, DonutChart, DropZone, ConfidenceGauge...
-    pages/                  # Landing, Upload, Analysis, Result
-    hooks/                  # useAnalysis (real API call), useFileUpload
-    services/               # Axios API layer, Firebase auth
-    utils/                  # Constants, formatters
-
-deepfake-backend/           # Python backend
-  backend/
-    main.py                 # FastAPI app (CORS, startup model loading)
-    routers/
-      analysis.py           # POST /api/analyze endpoint
-      health.py             # GET /health endpoint
-    services/
-      inference.py          # ModelLoader + VideoAnalyzer pipeline
-    models/
-      schemas.py            # Pydantic request/response schemas
-  training/
-    model.py                # EfficientNetV2-B3 + BiLSTM + Temporal Attention
-    dataset.py              # PyTorch Dataset + Albumentations augmentations
-    train.py                # Training loop with sanity checks + plots
-  preprocessing/
-    preprocess_celebdf.py   # Full Celeb-DF pipeline (video -> face crops)
-  config.py                 # All paths, hyperparameters, device config
-  evaluate_test.py          # Test set evaluation with metrics + plots
-  generate_plots.py         # Training performance visualization
-```
-
-## Tech Stack
-
-### Frontend
-- React 18 + Vite
-- Tailwind CSS
-- React Router v6
-- Axios
-
-### Backend
-- FastAPI + Uvicorn
-- PyTorch + timm (EfficientNetV2-B3)
-- OpenCV (face detection)
-- PyAV / FFmpeg (frame extraction)
-- Albumentations (augmentation)
-- scikit-learn (metrics)
-
-### Model Architecture
-- **Backbone**: EfficientNetV2-B3 (pretrained on ImageNet, 60% frozen)
-- **Temporal**: Bidirectional LSTM (1 layer, 256 hidden)
-- **Attention**: Temporal self-attention over frame sequence
-- **Loss**: Focal Loss (handles class imbalance)
-- **Training**: Cosine annealing LR with warmup, early stopping on val AUC
-
-## Setup
-
-### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- NVIDIA GPU with CUDA (recommended)
-
-### Backend Setup
-
-```bash
 cd deepfake-backend
-
-# Create environment
 conda create -n dfake python=3.11 -y
 conda activate dfake
 
-# Install dependencies
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 pip install fastapi uvicorn[standard] python-multipart timm scikit-learn opencv-python-headless av Pillow albumentations matplotlib tqdm pyyaml
 
-# Start the API server
 python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
 ```
 
-### Frontend Setup
-
-```bash
+**2️⃣ Frontend**
+```
 cd reality-check-ai
 npm install
 npm run dev
 ```
-
 Open http://localhost:3000 in your browser.
 
-### Training from Scratch
+## 📡 API Endpoints
 
-```bash
+🔹 **Health Check**
+```
+GET /health
+```
+```json
+{
+  "status": "ok",
+  "model_loaded": true,
+  "device": "cuda",
+  "version": "1.0.0"
+}
+```
+
+🔹 **Analyze Video**
+```
+POST /api/analyze
+```
+```
+curl -X POST http://localhost:8000/api/analyze -F "file=@video.mp4"
+```
+```json
+{
+  "is_fake": true,
+  "confidence": 99.74,
+  "fake_probability": 99.74,
+  "label": "fake",
+  "frames_analyzed": 30,
+  "faces_detected": 30,
+  "attention_weights": [0.0322, 0.0341, "..."],
+  "processing_time_ms": 2340,
+  "pipeline_steps": [
+    { "step": "frame_extraction", "detail": "Extracted 30 frames", "time_ms": 180 },
+    { "step": "face_detection", "detail": "Detected 30/30 faces", "time_ms": 920 },
+    { "step": "model_inference", "detail": "EfficientNet + LSTM", "time_ms": 1240 }
+  ]
+}
+```
+📍 Interactive docs: http://localhost:8000/docs (Swagger UI)
+
+## 🎓 Training From Scratch
+```
 cd deepfake-backend
 
-# 1. Download Celeb-DF v2 and place in data/ folder
+# 1. Download Celeb-DF v2 into data/
 #    https://github.com/yuezunli/celeb-deepfakeforensics
 
 # 2. Preprocess (extract faces from all videos)
@@ -138,67 +160,47 @@ python -m training.train --batch-size 8
 python evaluate_test.py
 ```
 
-## API Reference
+**Training details:**
+* Dataset: Celeb-DF v2 (4,809 train / 1,202 val / 518 test videos)
+* Class distribution: 890 real + 5,639 fake (Focal Loss + class weights)
+* Augmentations: JPEG compression, Gaussian blur/noise, color jitter, coarse dropout
+* Best checkpoint: Epoch 12, validation AUC 99.82%
+* Hardware: RTX 4070 Mobile (8GB VRAM), i9-14900HX
 
-### `GET /health`
-Returns model status and device info.
+## 📦 Dataset
+Uses [Celeb-DF v2](https://github.com/yuezunli/celeb-deepfakeforensics):
+* 590 real videos from YouTube (59 celebrities)
+* 5,639 deepfake videos, improved synthesis quality
+* Official train/test split provided
 
-```json
-{
-  "status": "ok",
-  "model_loaded": true,
-  "device": "cuda",
-  "version": "1.0.0"
-}
-```
+Not included in this repo due to size — download it separately from the link above.
 
-### `POST /api/analyze`
-Upload a video file for deepfake analysis.
+## 🎯 Use Cases
+* 🔍 Media authenticity verification
+* 🛡️ Content moderation pipelines
+* 📰 Journalism / fact-checking tooling
+* 🧪 Research baseline for deepfake detection benchmarking
 
-```bash
-curl -X POST http://localhost:8000/api/analyze -F "file=@video.mp4"
-```
+## 📌 Future Improvements
+* ✅ Test coverage (pytest for FastAPI routes)
+* ✅ CI/CD pipeline (GitHub Actions)
+* 🌐 Live hosted demo
+* 📁 Support for additional datasets (FaceForensics++)
+* 📥 Batch video analysis
 
-```json
-{
-  "is_fake": true,
-  "confidence": 99.74,
-  "fake_probability": 99.74,
-  "label": "fake",
-  "frames_analyzed": 30,
-  "faces_detected": 30,
-  "attention_weights": [0.0322, 0.0341, ...],
-  "processing_time_ms": 2340,
-  "pipeline_steps": [
-    {"step": "frame_extraction", "detail": "Extracted 30 frames", "time_ms": 180},
-    {"step": "face_detection", "detail": "Detected 30/30 faces", "time_ms": 920},
-    {"step": "model_inference", "detail": "EfficientNet + LSTM", "time_ms": 1240}
-  ]
-}
-```
+## 🤝 Contributing
+Contributions are welcome! Feel free to fork and improve.
 
-### Interactive API Docs
-Visit http://localhost:8000/docs for Swagger UI.
+## 📜 License
+This project is licensed under the MIT License.
 
-## Training Details
+## 👨‍💻 Authors
+Co-built by **Sanchit Sirohi** and **Saanann Roy** — see [CONTRIBUTORS.md](./CONTRIBUTORS.md) for the ownership split.
 
-- **Dataset**: Celeb-DF v2 (4,809 train / 1,202 val / 518 test videos)
-- **Class distribution**: 890 real + 5,639 fake (handled by Focal Loss + class weights)
-- **Augmentations**: JPEG compression, Gaussian blur/noise, color jitter, coarse dropout
-- **Best checkpoint**: Epoch 12, validation AUC 99.82%
-- **Hardware**: Trained on RTX 4070 Mobile (8GB VRAM), i9-14900HX
+## 🙏 Acknowledgments
+* Celeb-DF — Li et al., *"Celeb-DF: A Large-scale Challenging Dataset for DeepFake Forensics"*
+* [timm](https://github.com/huggingface/pytorch-image-models) — PyTorch Image Models
+* [Albumentations](https://albumentations.ai/) — Image augmentation library
 
-## Dataset
-
-This project uses [Celeb-DF v2](https://github.com/yuezunli/celeb-deepfakeforensics):
-- 590 real videos from YouTube (59 celebrities)
-- 5,639 deepfake videos generated with improved synthesis
-- Official train/test split provided
-
-The dataset is not included in this repository due to size. Download it separately from the link above.
-
-## Acknowledgments
-
-- [Celeb-DF](https://github.com/yuezunli/celeb-deepfakeforensics) — Li et al., "Celeb-DF: A Large-scale Challenging Dataset for DeepFake Forensics"
-- [timm](https://github.com/huggingface/pytorch-image-models) — PyTorch Image Models
-- [Albumentations](https://albumentations.ai/) — Image augmentation library
+## ⭐ If you like this project
+Give it a star ⭐ — it helps a lot!
